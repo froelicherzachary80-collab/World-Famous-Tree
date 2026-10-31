@@ -1,0 +1,11 @@
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+.pytest_cache/
+ios/*.xcodeproj
+ios/build/
+ios/WorldTreeApp/Info.plist
+.build/
+*.ipa
+.DS_Store

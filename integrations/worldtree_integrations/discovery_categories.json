@@ -1,0 +1,38 @@
+{
+  "_comment": "Public-figure discovery queries per research universe. Editable. 'fulltext' uses Wikidata CirrusSearch; 'sparql' uses query.wikidata.org and must bind ?item. Adults only: privacy rules additionally drop anyone under 18.",
+  "minecraft": {
+    "universe": "minecraft",
+    "method": "fulltext",
+    "query": "Minecraft haswbstatement:P31=Q5 haswbstatement:P106=Q17125263"
+  },
+  "gaming_creators": {
+    "universe": "minecraft",
+    "method": "fulltext",
+    "query": "video game haswbstatement:P31=Q5 haswbstatement:P106=Q17125263"
+  },
+  "young_hollywood": {
+    "universe": "young_hollywood",
+    "method": "sparql",
+    "query": "SELECT DISTINCT ?item WHERE { VALUES ?occ { wd:Q33999 wd:Q10800557 wd:Q10798782 } ?item wdt:P31 wd:Q5; wdt:P106 ?occ; wdt:P27 wd:Q30; wdt:P569 ?b; wikibase:sitelinks ?links . FILTER(YEAR(?b) >= 1995 && YEAR(?b) <= YEAR(NOW()) - 19) } ORDER BY DESC(?links) LIMIT {LIMIT}"
+  },
+  "marvel": {
+    "universe": "marvel",
+    "method": "sparql",
+    "query": "SELECT DISTINCT ?item WHERE { ?work wdt:P179|wdt:P361|wdt:P1434 wd:Q642878 . ?work wdt:P161 ?item . ?item wdt:P31 wd:Q5; wikibase:sitelinks ?links . } ORDER BY DESC(?links) LIMIT {LIMIT}"
+  },
+  "pop_music": {
+    "universe": "music",
+    "method": "sparql",
+    "query": "SELECT DISTINCT ?item WHERE { ?item wdt:P31 wd:Q5; wdt:P106 wd:Q177220; wdt:P136 wd:Q37073; wikibase:sitelinks ?links . } ORDER BY DESC(?links) LIMIT {LIMIT}"
+  },
+  "royal": {
+    "universe": "royal",
+    "method": "fulltext",
+    "query": "royal house haswbstatement:P31=Q5 haswbstatement:P53"
+  },
+  "ancient": {
+    "universe": "ancient",
+    "method": "sparql",
+    "query": "SELECT DISTINCT ?item WHERE { ?item wdt:P31 wd:Q5; wdt:P569 ?b; wdt:P22 ?f; wikibase:sitelinks ?links . FILTER(YEAR(?b) < 0) } ORDER BY DESC(?links) LIMIT {LIMIT}"
+  }
+}

@@ -1,0 +1,9 @@
+[project]
+name = "world-tree-ai"
+version = "1.0.0"
+description = "WORLD TREE AI research server — zero third-party dependencies (Python stdlib only)."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["backend", "integrations", "research-agents"]
+testpaths = ["tests"]

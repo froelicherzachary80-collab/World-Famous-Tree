@@ -1,0 +1,94 @@
+name: Release
+
+# Push a semantic-version tag (e.g. v1.0.0) to build and publish a GitHub release.
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    env:
+      HAS_SIGNING: ${{ secrets.IOS_P12_BASE64 != '' && secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve version
+        id: v
+        run: |
+          V="${{ github.event.inputs.version }}"
+          [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
+          echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "not semver: $V"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest && python -m pytest -q
+      - name: Swift core tests
+        working-directory: ios/WorldTreeCore
+        run: swift test
+      - run: brew install xcodegen
+      - working-directory: ios
+        run: xcodegen generate
+      - name: Archive (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild archive -project WorldTreeAI.xcodeproj -scheme WorldTreeAI -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/WorldTreeAI.xcarchive \
+            MARKETING_VERSION=${{ steps.v.outputs.version }} CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -n 40
+          test ${PIPESTATUS[0]} -eq 0
+      - name: Package unsigned IPA (for Signulous re-signing)
+        run: bash scripts/package-ipa.sh ios/build/WorldTreeAI.xcarchive WorldTreeAI-${{ steps.v.outputs.version }}-unsigned.ipa
+
+      # Optional: a signed IPA, only if you add your own Apple signing secrets.
+      - name: Signed IPA (only when secrets exist)
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12: ${{ secrets.IOS_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          KC=$RUNNER_TEMP/build.keychain; PW=$(uuidgen)
+          echo "$P12" | base64 --decode > $RUNNER_TEMP/cert.p12
+          echo "$PROFILE" | base64 --decode > $RUNNER_TEMP/profile.mobileprovision
+          security create-keychain -p "$PW" $KC && security set-keychain-settings -lut 21600 $KC && security unlock-keychain -p "$PW" $KC
+          security import $RUNNER_TEMP/cert.p12 -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KC
+          security list-keychain -d user -s $KC
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' /dev/stdin <<< $(security cms -D -i $RUNNER_TEMP/profile.mobileprovision))
+          cp $RUNNER_TEMP/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+          cat > $RUNNER_TEMP/export.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict><key>method</key><string>ad-hoc</string><key>teamID</key><string>$TEAM_ID</string>
+          <key>provisioningProfiles</key><dict><key>ai.worldtree.app</key><string>$UUID</string></dict></dict></plist>
+          EOF
+          cd ios
+          xcodebuild archive -project WorldTreeAI.xcodeproj -scheme WorldTreeAI -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/Signed.xcarchive \
+            MARKETING_VERSION=${{ steps.v.outputs.version }} DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=$UUID CODE_SIGN_IDENTITY="Apple Distribution"
+          xcodebuild -exportArchive -archivePath build/Signed.xcarchive -exportOptionsPlist $RUNNER_TEMP/export.plist -exportPath build/signed
+          cp build/signed/*.ipa ../WorldTreeAI-${{ steps.v.outputs.version }}-signed.ipa
+
+      - name: Checksums
+        run: shasum -a 256 WorldTreeAI-*.ipa | tee SHA256SUMS.txt
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.v.outputs.version }}"
+          git tag "$TAG" 2>/dev/null && git push origin "$TAG" || true
+          gh release create "$TAG" WorldTreeAI-*.ipa SHA256SUMS.txt \
+            --title "WORLD TREE AI v${{ steps.v.outputs.version }} — Famous Family Multiverse" \
+            --notes-file docs/RELEASE_NOTES.md || \
+          gh release upload "$TAG" WorldTreeAI-*.ipa SHA256SUMS.txt --clobber
