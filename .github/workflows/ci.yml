@@ -42,20 +42,31 @@ jobs:
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate
-      - name: UI tests (launch + navigation) on simulator
+      - name: Build app + UI tests for simulator
         working-directory: ios
         run: |
           DEST=$(../scripts/pick-simulator.sh)
-          xcodebuild test -project WorldTreeAI.xcodeproj -scheme WorldTreeAI \
-            -destination "$DEST" CODE_SIGNING_ALLOWED=NO | tee ../ui-test.log | tail -n 60
-          test ${PIPESTATUS[0]} -eq 0
+          echo "DEST=$DEST" >> "$GITHUB_ENV"
+          set -o pipefail
+          xcodebuild build-for-testing -project WorldTreeAI.xcodeproj -scheme WorldTreeAI \
+            -destination "$DEST" CODE_SIGNING_ALLOWED=NO > ../build.log 2>&1 || {
+              bash ../scripts/annotate-errors.sh ../build.log; exit 1; }
+          tail -n 5 ../build.log
+      - name: UI tests (launch + navigation) on simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project WorldTreeAI.xcodeproj -scheme WorldTreeAI \
+            -destination "$DEST" CODE_SIGNING_ALLOWED=NO > ../ui-test.log 2>&1 || {
+              bash ../scripts/annotate-errors.sh ../ui-test.log; exit 1; }
+          grep -E "Test Suite|Executed" ../ui-test.log | tail -n 5
       - name: Archive for device (unsigned)
         working-directory: ios
         run: |
           xcodebuild archive -project WorldTreeAI.xcodeproj -scheme WorldTreeAI -configuration Release \
             -destination 'generic/platform=iOS' -archivePath build/WorldTreeAI.xcarchive \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" | tail -n 40
-          test ${PIPESTATUS[0]} -eq 0
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > ../archive.log 2>&1 || {
+              bash ../scripts/annotate-errors.sh ../archive.log; exit 1; }
       - name: Package IPA
         run: bash scripts/package-ipa.sh ios/build/WorldTreeAI.xcarchive WorldTreeAI-unsigned.ipa
       - uses: actions/upload-artifact@v4
