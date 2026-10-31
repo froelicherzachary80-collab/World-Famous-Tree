@@ -4,6 +4,7 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
+    branches: [release]   # pushing the release branch publishes MARKETING_VERSION from ios/project.yml
   workflow_dispatch:
     inputs:
       version:
@@ -25,7 +26,10 @@ jobs:
         id: v
         run: |
           V="${{ github.event.inputs.version }}"
-          [ -z "$V" ] && V="${GITHUB_REF_NAME#v}"
+          if [ -z "$V" ]; then
+            if [[ "$GITHUB_REF" == refs/tags/* ]]; then V="${GITHUB_REF_NAME#v}"
+            else V=$(grep -E 'MARKETING_VERSION:' ios/project.yml | head -1 | sed -E 's/.*"([0-9.]+)".*/\1/'); fi
+          fi
           echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "not semver: $V"; exit 1; }
           echo "version=$V" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@v5
@@ -87,8 +91,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="v${{ steps.v.outputs.version }}"
-          git tag "$TAG" 2>/dev/null && git push origin "$TAG" || true
-          gh release create "$TAG" WorldTreeAI-*.ipa SHA256SUMS.txt \
+          gh release create "$TAG" WorldTreeAI-*.ipa SHA256SUMS.txt --target "$GITHUB_SHA" \
             --title "WORLD TREE AI v${{ steps.v.outputs.version }} — Famous Family Multiverse" \
             --notes-file docs/RELEASE_NOTES.md || \
           gh release upload "$TAG" WorldTreeAI-*.ipa SHA256SUMS.txt --clobber
