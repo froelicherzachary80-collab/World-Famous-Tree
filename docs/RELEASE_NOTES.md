@@ -1,14 +1,16 @@
-# WORLD TREE AI v1.0.0 — Famous Family Multiverse
+# WORLD TREE AI — Famous Family Multiverse
 
-First release: a working vertical slice.
+## v1.1.0
+- **Creator research on your iPhone:** type handles like `LDShadowLady, JumperWho, MinuteTech`. Finds publicly documented
+  real names, public relatives and deceased ancestors, and checks them against your tree.
+- **Background research:** keeps running after you leave the app (iOS 26+: system progress indicator).
+  Swiping the app away stops it; the saved queue resumes when you reopen.
+- Exact handle matching only — creators without a public record show *No public record found* instead of a guess.
+- Living relatives who aren't public figures, and anyone under 18, are never researched.
 
-- GEDCOM import (5.5, 5.5.1, 7) with nothing discarded
-- Interactive Family Multiverse graph with glowing relationship paths
-- Relationship Pathfinder with real cousin degree / removal calculation
-- Duplicate review with undoable merges
-- Self-hosted research server: natural-language goals, durable job queue, Wikidata + WikiTree connectors,
-  evidence verification, timeline checks, identity matching with human review
-- Encrypted local storage, private-by-default living people, optional local-only DNA import
+## v1.0.0
+- GEDCOM import, Family Multiverse graph, Relationship Pathfinder, duplicate review with undoable merges,
+  self-hosted research server, encrypted storage, optional local-only DNA import.
 
 **Installing:** download the `-unsigned.ipa` and sign it with Signulous (see docs/BUILD.md).
-Feature status and known limitations: docs/STATUS.md.
+Feature status: docs/STATUS.md.
