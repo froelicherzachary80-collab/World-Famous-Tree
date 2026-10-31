@@ -208,6 +208,10 @@ public struct ResearchLogEntry: Codable, Hashable, Identifiable, Sendable {
     public var agent: String
     public var message: String
     public var isError = false
+
+    public init(agent: String, message: String, isError: Bool = false) {
+        self.agent = agent; self.message = message; self.isError = isError
+    }
 }
 
 /// Fetched data for one job — produced off the main thread, applied to the tree synchronously.
